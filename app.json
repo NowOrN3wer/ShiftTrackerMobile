@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "ShiftTracker",
+    "slug": "shifttracker",
+    "version": "1.0.0",
+    "sdkVersion": "51.0.0",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "ios": {
+      "bundleIdentifier": "com.doganbacaksiz.shifttracker"
+    },
+    "android": {
+      "package": "com.doganbacaksiz.shifttracker"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "1c00cc1b-68bf-4dcf-903f-9087a13df394"
+      }
+    }
+  }
+}
