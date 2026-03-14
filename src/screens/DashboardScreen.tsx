@@ -10,7 +10,7 @@ import {
   minsToHM, timeToMins, calcWeekStats,
   calcElapsedDays, calcElapsedLabel, calcElapsedYears,
   daysUntilNextWeek, daysUntilNextMonth, daysUntilNextYear,
-  isWeekend, todayStr, formatDateLong,
+  isWeekend, todayStr, formatDateLong, calcStreak,
 } from '../utils/helpers';
 
 interface Props { entries: ShiftEntry[] }
@@ -176,8 +176,27 @@ export const DashboardScreen: React.FC<Props> = ({ entries }) => {
         </View>
         <View style={[s.card, s.half]}>
           <Text style={s.label}>Streak 🔥</Text>
-          <Text style={[s.value, { color:C.text }]}>0 gün</Text>
-          <Text style={s.sub}>Henüz seri yok</Text>
+          {(() => {
+            const streak = calcStreak(entries, standardMins);
+            return (
+              <>
+                <Text style={[s.value, { color: streak > 0 ? C.cyan : C.muted }]}>
+                  {streak} gün
+                </Text>
+                <Text style={s.sub}>
+                  {streak === 0
+                    ? 'Henüz seri yok'
+                    : streak < 3
+                    ? 'Devam et!'
+                    : streak < 7
+                    ? 'İyi gidiyorsun 💪'
+                    : streak < 14
+                    ? 'Harika seri! 🔥'
+                    : 'Efsane seri! 🏆'}
+                </Text>
+              </>
+            );
+          })()}
         </View>
       </View>
 

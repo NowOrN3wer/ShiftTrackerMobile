@@ -1,4 +1,4 @@
-import { RowColor } from '../types';
+import { RowColor, ShiftEntry } from '../types';
 
 export const DAYS = ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
 
@@ -112,6 +112,85 @@ export function calcWeekStats(entries: { startTime: string; endTime: string; isH
   });
   const targetMinutes = Math.max(0, 5 * standardMins - holidayCount * standardMins);
   return { totalMinutes: total, days, targetMinutes };
+}
+
+/**
+ * Calculates the current streak of consecutive workdays where the goal was met.
+ * - Weekends are skipped (don't break the streak).
+ * - Holidays count as a met day.
+ * - If today is a workday but has no complete data yet (still in progress),
+ *   it is skipped and the streak is calculated from yesterday onwards.
+ * - A workday with no entry, or with hours below standardMins, breaks the streak.
+ */
+export function calcStreak(entries: ShiftEntry[], standardMins: number): number {
+  // Build a lookup map: "DD.MM.YYYY" → entry
+  const entryMap = new Map<string, ShiftEntry>();
+  entries.forEach(e => entryMap.set(e.date, e));
+
+  function dateToStr(d: Date): string {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    return `${dd}.${mm}.${d.getFullYear()}`;
+  }
+
+  const current = new Date();
+  current.setHours(0, 0, 0, 0);
+
+  // If today is a workday, check if it has complete data
+  const todayDow = current.getDay();
+  const isWeekendDay = (dow: number) => dow === 0 || dow === 6;
+
+  if (!isWeekendDay(todayDow)) {
+    const todayEntry = entryMap.get(dateToStr(current));
+    const todayComplete =
+      todayEntry &&
+      (todayEntry.isHoliday || (todayEntry.startTime && todayEntry.endTime));
+    if (!todayComplete) {
+      // Today not yet finished — start counting from yesterday
+      current.setDate(current.getDate() - 1);
+    }
+  }
+
+  let streak = 0;
+
+  for (let i = 0; i < 730; i++) {
+    const dow = current.getDay();
+
+    if (isWeekendDay(dow)) {
+      // Weekend — skip without breaking
+      current.setDate(current.getDate() - 1);
+      continue;
+    }
+
+    const dateStr = dateToStr(current);
+    const entry = entryMap.get(dateStr);
+
+    if (!entry) {
+      // No entry for this workday — streak ends
+      break;
+    }
+
+    if (entry.isHoliday) {
+      // Holiday counts as met
+      streak++;
+      current.setDate(current.getDate() - 1);
+      continue;
+    }
+
+    if (entry.startTime && entry.endTime) {
+      const worked = timeToMins(entry.endTime) - timeToMins(entry.startTime);
+      if (worked >= standardMins) {
+        streak++;
+        current.setDate(current.getDate() - 1);
+        continue;
+      }
+    }
+
+    // Workday exists but goal not met — streak ends
+    break;
+  }
+
+  return streak;
 }
 
 export function isWeekend(dateStr: string): boolean {
