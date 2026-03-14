@@ -14,3 +14,9 @@ export interface WeekStats {
   targetMinutes: number;
   days: number;
 }
+
+export interface SalaryRow {
+  id: string;
+  amount: number;
+  date: string;
+}

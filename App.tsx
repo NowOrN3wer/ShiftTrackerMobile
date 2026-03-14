@@ -7,12 +7,14 @@ import { AppSettingsProvider, useAppSettings } from './src/hooks/useAppSettings'
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { MesaiScreen }     from './src/screens/MesaiScreen';
 import { SettingsScreen }  from './src/screens/SettingsScreen';
+import { SalaryScreen }    from './src/screens/SalaryScreen';
 import { SplashScreen }    from './src/components/SplashScreen';
 import { useShifts }       from './src/hooks/useShifts';
+import { SalariesProvider }from './src/hooks/useSalaries';
 import { initDb }          from './src/utils/db';
 import { ShiftEntry }      from './src/types';
 
-type Tab = 'dashboard' | 'mesai' | 'settings';
+type Tab = 'dashboard' | 'mesai' | 'settings' | 'salary';
 
 function Inner() {
   const { colors: C, themeMode, loaded: settingsLoaded } = useAppSettings();
@@ -54,6 +56,7 @@ function Inner() {
   const NAV = [
     { key: 'dashboard', icon: '📊', label: 'Dashboard' },
     { key: 'mesai',     icon: '⏱',  label: 'Mesai'    },
+    { key: 'salary',    icon: '💰',  label: 'Maaş'     },
     { key: 'settings',  icon: '⚙️',  label: 'Ayarlar'  },
   ] as const;
 
@@ -92,6 +95,7 @@ function Inner() {
                 onDelete={(id: string) => remove(id)}
               />
             )}
+            {tab === 'salary'   && <SalaryScreen />}
             {tab === 'settings' && <SettingsScreen />}
           </View>
         </>
@@ -111,7 +115,9 @@ function Inner() {
 export default function App() {
   return (
     <AppSettingsProvider>
-      <Inner />
+      <SalariesProvider>
+        <Inner />
+      </SalariesProvider>
     </AppSettingsProvider>
   );
 }

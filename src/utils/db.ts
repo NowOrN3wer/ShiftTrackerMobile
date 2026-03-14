@@ -38,6 +38,11 @@ export async function getDb(): Promise<SQLite.SQLiteDatabase> {
         end_time   TEXT,
         is_holiday INTEGER NOT NULL DEFAULT 0
       );
+      CREATE TABLE IF NOT EXISTS salaries (
+        id      TEXT PRIMARY KEY,
+        amount  REAL NOT NULL,
+        date    TEXT NOT NULL
+      );
     `);
 
     _db = db;
@@ -150,6 +155,49 @@ export async function getShiftsBetween(from: string, to: string): Promise<ShiftE
   return rows
     .filter(r => { const t = toTs(r.date); return t >= fromTs && t <= toTs2; })
     .map(rowToEntry);
+}
+
+// ─── Salary CRUD ────────────────────────────────────────────────────────
+
+export interface SalaryRow {
+  id: string;
+  amount: number;
+  date: string;
+}
+
+export async function getSalaries(): Promise<SalaryRow[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<SalaryRow>(
+    `SELECT * FROM salaries`
+  );
+  // Sort descending by date
+  return rows.sort((a, b) => {
+    const parse = (d: string) => {
+      const parts = d.split('.');
+      if (parts.length !== 3) return 0;
+      const [dd, mm, yy] = parts.map(Number);
+      return new Date(yy, mm - 1, dd).getTime();
+    };
+    return parse(b.date) - parse(a.date);
+  });
+}
+
+export async function upsertSalary(id: string, amount: number, date: string): Promise<SalaryRow> {
+  const db = await getDb();
+  await db.runAsync(
+    `INSERT INTO salaries (id, amount, date)
+     VALUES (?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       amount = excluded.amount,
+       date   = excluded.date`,
+    [id, amount, date]
+  );
+  return { id, amount, date };
+}
+
+export async function deleteSalary(id: string): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(`DELETE FROM salaries WHERE id = ?`, [id]);
 }
 
 /** Veritabanını kapat (uygulama kapanırken) */

@@ -1,6 +1,9 @@
 # Proje Hedefleri ve Gündem (Agenda)
 
 ## Mevcut Görevler / Odak Noktaları
+- [x] Maaş ve Alışveriş Hesaplayıcı Ekranı (SalaryScreen) eklenecek.
+  - [x] Maaş geçmişinin ve her zammın farkının tutulması.
+  - [x] Belirli bir eşyanın fiyatı girildiğinde o eşyayı alabilmek için ne kadar çalışılması gerektiğinin hesaplanması (saat, gün, hafta, ay, yıl formatlarında).
 - [ ] Uygulama bileşenlerinin farklı iOS ve Android cihazlardaki çözünürlük testlerinin yapılması.
 - [ ] Kullanıcı deneyimini artıracak ufak animasyon (Reanimated vb.) eklemelerinin tespiti.
 
