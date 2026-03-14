@@ -1,4 +1,4 @@
-import { RowColor } from '../types';
+import { RowColor, ShiftEntry } from '../types';
 
 export const DAYS = ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
 
@@ -117,6 +117,97 @@ export function calcWeekStats(entries: { startTime: string; endTime: string; isH
 export function isWeekend(dateStr: string): boolean {
   const d = parseDate(dateStr).getDay();
   return d === 0 || d === 6;
+}
+
+/**
+ * Calculates the current goal streak.
+ * Consecutive weekdays where worked >= standardMins → streak++
+ * Weekends and holidays are skipped (don't break or add to streak).
+ * If today hasn't been entered yet, counting starts from yesterday.
+ */
+export function calcStreak(entries: ShiftEntry[], standardMins: number): { count: number; label: string } {
+  if (!entries.length) return { count: 0, label: 'Henüz seri yok' };
+
+  const entryMap = new Map<string, ShiftEntry>();
+  entries.forEach(e => entryMap.set(e.date, e));
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let streak = 0;
+  const current = new Date(today);
+  let checkedDays = 0;
+  const MAX_CHECK = 730;
+
+  while (checkedDays < MAX_CHECK) {
+    const dayOfWeek = current.getDay();
+
+    // Skip weekends — they don't count
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      current.setDate(current.getDate() - 1);
+      checkedDays++;
+      continue;
+    }
+
+    const d = String(current.getDate()).padStart(2, '0');
+    const m = String(current.getMonth() + 1).padStart(2, '0');
+    const y = current.getFullYear();
+    const dateStr = `${d}.${m}.${y}`;
+    const isToday = current.getTime() === today.getTime();
+
+    const entry = entryMap.get(dateStr);
+
+    if (!entry) {
+      if (isToday) {
+        // Today not entered yet — look at previous days
+        current.setDate(current.getDate() - 1);
+        checkedDays++;
+        continue;
+      }
+      // Past weekday with no record — streak broken
+      break;
+    }
+
+    if (entry.isHoliday) {
+      // Holidays are skipped, don't break streak
+      current.setDate(current.getDate() - 1);
+      checkedDays++;
+      continue;
+    }
+
+    // Today: still working (start entered, no end yet) — skip
+    if (isToday && entry.startTime && !entry.endTime) {
+      current.setDate(current.getDate() - 1);
+      checkedDays++;
+      continue;
+    }
+
+    // Today: nothing entered yet — skip (handled above in !entry block,
+    // but also possible if entry exists with empty times)
+    if (isToday && !entry.startTime) {
+      current.setDate(current.getDate() - 1);
+      checkedDays++;
+      continue;
+    }
+
+    if (!entry.startTime || !entry.endTime) {
+      // Past day with missing time data — streak broken
+      break;
+    }
+
+    const worked = timeToMins(entry.endTime) - timeToMins(entry.startTime);
+    if (worked >= standardMins) {
+      streak++;
+    } else {
+      break;
+    }
+
+    current.setDate(current.getDate() - 1);
+    checkedDays++;
+  }
+
+  if (streak === 0) return { count: 0, label: 'Henüz seri yok' };
+  return { count: streak, label: streak === 1 ? '1 günlük seri' : `${streak} günlük seri` };
 }
 
 export function formatDateLong(dateStr: string): string {
