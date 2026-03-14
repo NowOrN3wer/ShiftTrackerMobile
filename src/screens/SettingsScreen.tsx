@@ -6,13 +6,17 @@ import {
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useAppSettings } from '../hooks/useAppSettings';
 import {
-  calcElapsedDays, calcElapsedLabel, calcElapsedYears, formatDateLong,
+  calcElapsedDays, calcElapsedLabel, calcElapsedYears, formatDateLong, timeToMins, minsToHM,
 } from '../utils/helpers';
 
 /** "GG.AA.YYYY" → Date */
 function parseDate(str: string): Date {
-  const [dd, mm, yyyy] = str.split('.').map(Number);
-  return new Date(yyyy, mm - 1, dd);
+  if (!str) return new Date();
+  const parts = str.split('.');
+  if (parts.length !== 3) return new Date();
+  const [dd, mm, yyyy] = parts.map(Number);
+  const d = new Date(yyyy, mm - 1, dd);
+  return isNaN(d.getTime()) ? new Date() : d;
 }
 /** Date → "GG.AA.YYYY" */
 function formatDate(d: Date): string {
@@ -22,17 +26,45 @@ function formatDate(d: Date): string {
   return `${dd}.${mm}.${yyyy}`;
 }
 
+/** "HH:MM" → Date (saat picker için) */
+function parseTime(str: string): Date {
+  if (!str) return new Date();
+  const parts = str.split(':');
+  if (parts.length !== 2) return new Date();
+  const [h, m] = parts.map(Number);
+  const d = new Date();
+  d.setHours(h, m, 0, 0);
+  return isNaN(d.getTime()) ? new Date() : d;
+}
+/** Date → "HH:MM" */
+function formatTime(d: Date): string {
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 export const SettingsScreen: React.FC = () => {
-  const { colors: C, themeMode, setTheme, startDate, setStartDate } = useAppSettings();
+  const { colors: C, themeMode, setTheme, startDate, setStartDate, defaultStart, defaultEnd, setDefaultStart, setDefaultEnd } = useAppSettings();
   const [dateInput, setDateInput] = useState(startDate);
+  const [startInput, setStartInput] = useState(defaultStart);
+  const [endInput, setEndInput] = useState(defaultEnd);
   const [saved, setSaved] = useState(false);
+  
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
 
   const isDark = themeMode === 'dark';
 
   const onDateChange = (_e: DateTimePickerEvent, selected?: Date) => {
     if (Platform.OS === 'android') setShowDatePicker(false);
     if (selected) setDateInput(formatDate(selected));
+  };
+  const onStartChange = (_e: DateTimePickerEvent, selected?: Date) => {
+    if (Platform.OS === 'android') setShowStartPicker(false);
+    if (selected) setStartInput(formatTime(selected));
+  };
+  const onEndChange = (_e: DateTimePickerEvent, selected?: Date) => {
+    if (Platform.OS === 'android') setShowEndPicker(false);
+    if (selected) setEndInput(formatTime(selected));
   };
 
   const handleSave = () => {
@@ -43,6 +75,8 @@ export const SettingsScreen: React.FC = () => {
       return;
     }
     setStartDate(dateInput);
+    setDefaultStart(startInput);
+    setDefaultEnd(endInput);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -74,43 +108,96 @@ export const SettingsScreen: React.FC = () => {
               <Text style={[s.dateText, { color: C.text }]}>{dateInput}</Text>
               <Text style={s.dateIcon}>📅</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[s.saveBtn, saved && { backgroundColor: C.green }]}
-              onPress={handleSave}
-              activeOpacity={0.8}
-            >
-              <Text style={s.saveBtnText}>{saved ? '✓ Kaydedildi' : 'Kaydet'}</Text>
-            </TouchableOpacity>
           </View>
           <Text style={s.hint}>Şu an kayıtlı: {startDate}</Text>
         </View>
 
+        <View style={s.card}>
+          <Text style={s.fieldLabel}>Varsayılan Mesai Saatleri (Giriş / Çıkış)</Text>
+          <View style={s.inputRow}>
+            <TouchableOpacity
+              style={s.dateBtn}
+              onPress={() => setShowStartPicker(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={[s.dateText, { color: C.text }]}>{startInput}</Text>
+              <Text style={s.dateIcon}>⏰</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={s.dateBtn}
+              onPress={() => setShowEndPicker(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={[s.dateText, { color: C.text }]}>{endInput}</Text>
+              <Text style={s.dateIcon}>⏰</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <TouchableOpacity
+          style={[s.saveBtn, saved && { backgroundColor: C.green }, { marginTop: 10 }]}
+          onPress={handleSave}
+          activeOpacity={0.8}
+        >
+          <Text style={s.saveBtnText}>{saved ? '✓ Kaydedildi' : 'Ayarları Kaydet'}</Text>
+        </TouchableOpacity>
+
         {/* iOS Picker Modal */}
         {Platform.OS === 'ios' && (
-          <Modal visible={showDatePicker} transparent animationType="slide">
+          <Modal visible={showDatePicker || showStartPicker || showEndPicker} transparent animationType="slide">
             <View style={s.modalOverlay}>
               <View style={[s.modalContent, { backgroundColor: isDark ? '#1c1f2a' : '#fff' }]}>
                 <View style={s.modalHeader}>
-                  <Text style={[s.modalTitle, { color: C.text }]}>Başlangıç Tarihi Seç</Text>
-                  <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                  <Text style={[s.modalTitle, { color: C.text }]}>Seçim Yap</Text>
+                  <TouchableOpacity onPress={() => { setShowDatePicker(false); setShowStartPicker(false); setShowEndPicker(false); }}>
                     <Text style={[s.modalDone, { color: C.cyan }]}>Tamam</Text>
                   </TouchableOpacity>
                 </View>
-                <DateTimePicker
-                  value={parseDate(dateInput)}
-                  mode="date"
-                  display="spinner"
-                  onChange={onDateChange}
-                  locale="tr-TR"
-                  themeVariant={isDark ? 'dark' : 'light'}
-                  style={{ height: 180 }}
-                />
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={parseDate(dateInput)}
+                    mode="date"
+                    display="spinner"
+                    onChange={onDateChange}
+                    locale="tr-TR"
+                    themeVariant={isDark ? 'dark' : 'light'}
+                    style={{ height: 180 }}
+                  />
+                )}
+                {showStartPicker && (
+                  <DateTimePicker
+                    value={parseTime(startInput)}
+                    mode="time"
+                    display="spinner"
+                    onChange={onStartChange}
+                    locale="tr-TR"
+                    themeVariant={isDark ? 'dark' : 'light'}
+                    style={{ height: 180 }}
+                  />
+                )}
+                {showEndPicker && (
+                  <DateTimePicker
+                    value={parseTime(endInput)}
+                    mode="time"
+                    display="spinner"
+                    onChange={onEndChange}
+                    locale="tr-TR"
+                    themeVariant={isDark ? 'dark' : 'light'}
+                    style={{ height: 180 }}
+                  />
+                )}
               </View>
             </View>
           </Modal>
         )}
         {Platform.OS === 'android' && showDatePicker && (
           <DateTimePicker value={parseDate(dateInput)} mode="date" onChange={onDateChange} />
+        )}
+        {Platform.OS === 'android' && showStartPicker && (
+          <DateTimePicker value={parseTime(startInput)} mode="time" is24Hour onChange={onStartChange} />
+        )}
+        {Platform.OS === 'android' && showEndPicker && (
+          <DateTimePicker value={parseTime(endInput)} mode="time" is24Hour onChange={onEndChange} />
         )}
 
         {/* Preview */}
@@ -169,20 +256,23 @@ export const SettingsScreen: React.FC = () => {
       <View style={s.section}>
         <Text style={s.sectionTitle}>Mesai Renk Sistemi</Text>
         <View style={s.card}>
-          {[
-            { color: C.red,    label: 'Kırmızı', desc: '9 saat 30 dakikadan az' },
-            { color: C.yellow, label: 'Sarı',    desc: '9:30 ile 10:30 arası' },
-            { color: C.blue,   label: 'Mavi',    desc: '10 saat 30 dakika ve üzeri' },
-            { color: C.purple, label: 'Mor',     desc: 'Tatil / Resmi tatil günü' },
-          ].map(item => (
-            <View key={item.label} style={s.colorRow}>
-              <View style={[s.colorDot, { backgroundColor: item.color }]}/>
-              <View>
-                <Text style={[s.colorLabel, { color: item.color }]}>{item.label}</Text>
-                <Text style={s.colorDesc}>{item.desc}</Text>
+          {(() => {
+            const standardMins = timeToMins(defaultEnd) - timeToMins(defaultStart);
+            return [
+              { color: C.red,    label: 'Kırmızı', desc: `${minsToHM(standardMins)}'dan az` },
+              { color: C.yellow, label: 'Sarı',    desc: `${minsToHM(standardMins)} ile ${minsToHM(standardMins + 60)} arası` },
+              { color: C.blue,   label: 'Mavi',    desc: `${minsToHM(standardMins + 60)} ve üzeri` },
+              { color: C.purple, label: 'Mor',     desc: 'Tatil / Resmi tatil günü' },
+            ].map(item => (
+              <View key={item.label} style={s.colorRow}>
+                <View style={[s.colorDot, { backgroundColor: item.color }]}/>
+                <View>
+                  <Text style={[s.colorLabel, { color: item.color }]}>{item.label}</Text>
+                  <Text style={s.colorDesc}>{item.desc}</Text>
+                </View>
               </View>
-            </View>
-          ))}
+            ));
+          })()}
         </View>
       </View>
 

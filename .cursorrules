@@ -1,0 +1,3 @@
+Oluşturulacak tüm AI konuşmalarında ve projelerindeki değişikliklerde uyulması gereken temel kurallar için projenin kök dizininde bulunan **ai-instructions.md**, **agenda.md** ve **progress.md** dosyalarını referans almalısın. 
+
+Lütfen kod üretirken Typescript kurallarına mutlak bir biçimde bağlı kal, gereksiz ve plansız stil/veritabanı değişikleri yapmaktan kaçın, uygulamaya özgü tema modüllerini (useAppSettings) projeye entegre ederken ve tarih sıralamaları esnasında `helpers.ts` standartlarını koru. Kök dizindeki .md dosyalarında yazan kurallar bu projenin temel dayanağıdır.

@@ -15,12 +15,12 @@ export function minsToHM(mins: number): string {
   return `${h}:${String(m).padStart(2, '0')}`;
 }
 
-export function getRowColor(startTime: string, endTime: string, isHoliday: boolean): RowColor {
+export function getRowColor(startTime: string, endTime: string, isHoliday: boolean, standardMins: number = 9 * 60 + 30): RowColor {
   if (isHoliday) return 'purple';
   if (!startTime || !endTime) return 'none';
   const total = timeToMins(endTime) - timeToMins(startTime);
-  if (total < 9 * 60 + 30) return 'red';
-  if (total <= 10 * 60 + 30) return 'yellow';
+  if (total < standardMins) return 'red';
+  if (total <= standardMins + 60) return 'yellow';
   return 'blue';
 }
 
@@ -100,15 +100,18 @@ export function getWeekLabel(entries: { date: string }[], offset: number): strin
   return `${slice[slice.length - 1].date} - ${slice[0].date}`;
 }
 
-export function calcWeekStats(entries: { startTime: string; endTime: string; isHoliday: boolean }[]) {
-  let total = 0, days = 0;
+export function calcWeekStats(entries: { startTime: string; endTime: string; isHoliday: boolean }[], standardMins: number = 9 * 60 + 30) {
+  let total = 0, days = 0, holidayCount = 0;
   entries.forEach(e => {
-    if (!e.isHoliday && e.startTime && e.endTime) {
+    if (e.isHoliday) {
+      holidayCount++;
+    } else if (e.startTime && e.endTime) {
       total += timeToMins(e.endTime) - timeToMins(e.startTime);
       days++;
     }
   });
-  return { totalMinutes: total, days, targetMinutes: 47 * 60 + 30 };
+  const targetMinutes = Math.max(0, 5 * standardMins - holidayCount * standardMins);
+  return { totalMinutes: total, days, targetMinutes };
 }
 
 export function isWeekend(dateStr: string): boolean {

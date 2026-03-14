@@ -80,9 +80,15 @@ function rowToEntry(row: ShiftRow): ShiftEntry {
 export async function getAllShifts(): Promise<ShiftEntry[]> {
   const db = await getDb();
   const rows = await db.getAllAsync<ShiftRow>(
-    `SELECT * FROM shifts ORDER BY date DESC`
+    `SELECT * FROM shifts`
   );
-  return rows.map(rowToEntry);
+  return rows.map(rowToEntry).sort((a, b) => {
+    const parse = (d: string) => {
+      const [dd, mm, yy] = d.split('.').map(Number);
+      return new Date(yy, mm - 1, dd).getTime();
+    };
+    return parse(b.date) - parse(a.date);
+  });
 }
 
 /** Tek kayıt getir */

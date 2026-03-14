@@ -13,8 +13,12 @@ import { getRowColors } from '../utils/theme';
 // ── Yardımcı fonksiyonlar ────────────────────────────────────────────
 /** "GG.AA.YYYY" → Date */
 function parseDate(str: string): Date {
-  const [dd, mm, yyyy] = str.split('.').map(Number);
-  return new Date(yyyy, mm - 1, dd);
+  if (!str) return new Date();
+  const parts = str.split('.');
+  if (parts.length !== 3) return new Date();
+  const [dd, mm, yyyy] = parts.map(Number);
+  const d = new Date(yyyy, mm - 1, dd);
+  return isNaN(d.getTime()) ? new Date() : d;
 }
 /** Date → "GG.AA.YYYY" */
 function formatDate(d: Date): string {
@@ -25,10 +29,13 @@ function formatDate(d: Date): string {
 }
 /** "HH:MM" → Date (saat picker için) */
 function parseTime(str: string): Date {
-  const [h, m] = str.split(':').map(Number);
+  if (!str) return new Date();
+  const parts = str.split(':');
+  if (parts.length !== 2) return new Date();
+  const [h, m] = parts.map(Number);
   const d = new Date();
   d.setHours(h, m, 0, 0);
-  return d;
+  return isNaN(d.getTime()) ? new Date() : d;
 }
 /** Date → "HH:MM" */
 function formatTime(d: Date): string {
@@ -42,12 +49,12 @@ interface Props {
 }
 
 export const MesaiScreen: React.FC<Props> = ({ entries, onSave, onDelete }) => {
-  const { colors: C, themeMode } = useAppSettings();
+  const { colors: C, themeMode, defaultStart, defaultEnd } = useAppSettings();
   const rowColors = getRowColors(themeMode);
 
   const [date,  setDate]  = useState(todayStr());
-  const [start, setStart] = useState('08:30');
-  const [end,   setEnd]   = useState('18:00');
+  const [start, setStart] = useState(defaultStart);
+  const [end,   setEnd]   = useState(defaultEnd);
   const [weekOffset, setWeekOffset] = useState(0);
   const [saved, setSaved] = useState(false);
 
@@ -110,8 +117,8 @@ export const MesaiScreen: React.FC<Props> = ({ entries, onSave, onDelete }) => {
           text: '✏️ Düzenle',
           onPress: () => {
             setDate(entry.date);
-            setStart(entry.startTime || '08:30');
-            setEnd(entry.endTime || '18:00');
+            setStart(entry.startTime || defaultStart);
+            setEnd(entry.endTime || defaultEnd);
           },
         },
         { text: 'Kapat', style: 'cancel' },
@@ -272,7 +279,8 @@ export const MesaiScreen: React.FC<Props> = ({ entries, onSave, onDelete }) => {
         {pageEntries.length === 0
           ? <Text style={s.empty}>Bu haftaya ait kayıt yok</Text>
           : pageEntries.map(entry => {
-              const color = getRowColor(entry.startTime, entry.endTime, entry.isHoliday);
+              const standardMins = timeToMins(defaultEnd) - timeToMins(defaultStart);
+              const color = getRowColor(entry.startTime, entry.endTime, entry.isHoliday, standardMins);
               const theme = rowColors[color];
               const total = entry.isHoliday ? '—'
                 : entry.startTime && entry.endTime

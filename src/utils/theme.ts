@@ -30,9 +30,10 @@ export const LightColors = {
   green:    '#16a34a',
 } as const;
 
-export type Colors = typeof DarkColors;
+export type ColorsType = Record<keyof typeof DarkColors, string>;
+export const Colors = DarkColors;
 
-export function getColors(mode: ThemeMode): Colors {
+export function getColors(mode: ThemeMode): ColorsType {
   return mode === 'dark' ? DarkColors : LightColors;
 }
 

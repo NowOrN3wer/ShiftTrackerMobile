@@ -23,8 +23,10 @@ function nowStr() {
 }
 
 export const DashboardScreen: React.FC<Props> = ({ entries }) => {
-  const { colors, startDate, themeMode } = useAppSettings();
+  const { colors, startDate, themeMode, defaultStart, defaultEnd } = useAppSettings();
   const C = colors;
+  
+  const standardMins = timeToMins(defaultEnd) - timeToMins(defaultStart);
 
   const [clock, setClock] = useState(nowStr());
   const [calcH, setCalcH] = useState('8');
@@ -43,26 +45,66 @@ export const DashboardScreen: React.FC<Props> = ({ entries }) => {
 
   // ── Stats
   const thisWeek  = entries.slice(0, 7);
-  const weekStats = calcWeekStats(thisWeek);
-  const weekPct   = Math.round((weekStats.totalMinutes / weekStats.targetMinutes) * 100);
+  const weekStats = calcWeekStats(thisWeek, standardMins);
+  const weekPct   = weekStats.targetMinutes > 0 ? Math.round((weekStats.totalMinutes / weekStats.targetMinutes) * 100) : 100;
 
   const workEntries = entries.filter(e => !e.isHoliday && e.startTime && e.endTime);
   const annualBal   = workEntries.reduce((acc, e) =>
-    acc + timeToMins(e.endTime) - timeToMins(e.startTime) - (9*60+30), 0);
+    acc + timeToMins(e.endTime) - timeToMins(e.startTime) - standardMins, 0);
 
-  const monthEntries = entries.slice(0, 20);
-  const monthTotal   = monthEntries
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+
+  function getWorkdaysInMonth(year: number, month: number) {
+    let workdays = 0;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    for (let i = 1; i <= daysInMonth; i++) {
+      const day = new Date(year, month, i).getDay();
+      if (day !== 0 && day !== 6) workdays++;
+    }
+    return workdays;
+  }
+
+  const mEntries = entries.filter(e => {
+    const [, m, y] = e.date.split('.');
+    return parseInt(m, 10) - 1 === currentMonth && parseInt(y, 10) === currentYear;
+  });
+
+  const monthHolidays = mEntries.filter(e => e.isHoliday).length;
+  const monthWorkdays = getWorkdaysInMonth(currentYear, currentMonth);
+  const monthTargetMins = Math.max(0, (monthWorkdays - monthHolidays) * standardMins);
+
+  const monthTotal = mEntries
     .filter(e => !e.isHoliday && e.startTime && e.endTime)
     .reduce((acc, e) => acc + timeToMins(e.endTime) - timeToMins(e.startTime), 0);
-  const monthWorked  = monthEntries.filter(e => !e.isHoliday && e.startTime).length;
-  const monthPct     = Math.round((monthTotal / (190*60)) * 100);
-  const monthAvg     = monthWorked > 0 ? Math.round(monthTotal / monthWorked) : 0;
+  const monthWorked = mEntries.filter(e => !e.isHoliday && e.startTime).length;
+  const monthPct = monthTargetMins > 0 ? Math.round((monthTotal / monthTargetMins) * 100) : 100;
+  const monthAvg = monthWorked > 0 ? Math.round(monthTotal / monthWorked) : 0;
 
-  const bestDay  = workEntries.reduce((b, e) => {
+  const workEntriesThisMonth = workEntries.filter(e => {
+    const [, m, y] = e.date.split('.');
+    return parseInt(m, 10) - 1 === currentMonth && parseInt(y, 10) === currentYear;
+  });
+
+  const bestDayMonth = workEntriesThisMonth.reduce((b, e) => {
     const m = timeToMins(e.endTime)-timeToMins(e.startTime);
     return m > (b?.mins||0) ? {mins:m, date:e.date} : b;
   }, null as {mins:number;date:string}|null);
-  const worstDay = workEntries.reduce((b, e) => {
+  const worstDayMonth = workEntriesThisMonth.reduce((b, e) => {
+    const m = timeToMins(e.endTime)-timeToMins(e.startTime);
+    return !b || m < b.mins ? {mins:m, date:e.date} : b;
+  }, null as {mins:number;date:string}|null);
+
+  const workEntriesThisYear = workEntries.filter(e => {
+    const [, , y] = e.date.split('.');
+    return parseInt(y, 10) === currentYear;
+  });
+
+  const bestDayYear  = workEntriesThisYear.reduce((b, e) => {
+    const m = timeToMins(e.endTime)-timeToMins(e.startTime);
+    return m > (b?.mins||0) ? {mins:m, date:e.date} : b;
+  }, null as {mins:number;date:string}|null);
+  const worstDayYear = workEntriesThisYear.reduce((b, e) => {
     const m = timeToMins(e.endTime)-timeToMins(e.startTime);
     return !b || m < b.mins ? {mins:m, date:e.date} : b;
   }, null as {mins:number;date:string}|null);
@@ -73,8 +115,8 @@ export const DashboardScreen: React.FC<Props> = ({ entries }) => {
     const n = new Date(); const nowMins = n.getHours()*60+n.getMinutes();
     setCalcResult({
       elapsed: nowMins > startMins ? minsToHM(nowMins-startMins)+' geçti' : '0:00',
-      min: minsToHM(startMins + 9*60+30),
-      sug: minsToHM(startMins + 10*60+30),
+      min: minsToHM(startMins + standardMins),
+      sug: minsToHM(startMins + standardMins + 60),
     });
   };
 
@@ -94,14 +136,14 @@ export const DashboardScreen: React.FC<Props> = ({ entries }) => {
           <Text style={[s.value, { color: annualBal>=0 ? C.green : C.red }]}>
             {annualBal>=0?'+':''}{minsToHM(Math.abs(annualBal))}
           </Text>
-          <Text style={s.sub}>Hafta içi × 9s30dk</Text>
+          <Text style={s.sub}>Hafta içi × {minsToHM(standardMins)}</Text>
         </View>
         <View style={[s.card, s.half]}>
           <Text style={s.label}>Aylık Ortalama</Text>
-          <Text style={[s.value, { color: monthAvg < 9*60+30 ? C.yellow : C.cyan }]}>
+          <Text style={[s.value, { color: monthAvg < standardMins ? C.yellow : C.cyan }]}>
             {minsToHM(monthAvg)}
           </Text>
-          <Text style={s.sub}>{monthWorked} / 20 gün</Text>
+          <Text style={s.sub}>{monthWorked} / {monthWorkdays} gün</Text>
         </View>
       </View>
 
@@ -110,7 +152,7 @@ export const DashboardScreen: React.FC<Props> = ({ entries }) => {
         <Text style={s.label}>Aylık Hedef / Gerçekleşen</Text>
         <View style={{ flexDirection:'row', alignItems:'baseline', gap:8 }}>
           <Text style={[s.value, { fontSize:20, color:C.text }]}>{minsToHM(monthTotal)}</Text>
-          <Text style={{ color:C.muted, fontSize:13 }}>/ 190:00</Text>
+          <Text style={{ color:C.muted, fontSize:13 }}>/ {minsToHM(monthTargetMins)}</Text>
         </View>
         <View style={{ marginTop:10 }}>
           <View style={{ height:4, backgroundColor:C.border, borderRadius:2, overflow:'hidden' }}>
@@ -127,7 +169,7 @@ export const DashboardScreen: React.FC<Props> = ({ entries }) => {
           <Text style={[s.value, { color: weekPct<50?C.red:C.cyan, fontSize:20 }]}>
             {minsToHM(weekStats.totalMinutes)}
           </Text>
-          <Text style={s.sub}>/ 47:30 · %{weekPct}</Text>
+          <Text style={s.sub}>/ {minsToHM(weekStats.targetMinutes)} · %{weekPct}</Text>
           <View style={{ height:4, backgroundColor:C.border, borderRadius:2, overflow:'hidden', marginTop:8 }}>
             <View style={{ width:`${Math.min(weekPct,100)}%` as any, height:'100%', backgroundColor:weekPct<50?C.red:C.cyan, borderRadius:2 }}/>
           </View>
@@ -148,8 +190,8 @@ export const DashboardScreen: React.FC<Props> = ({ entries }) => {
           const pct = mins/MAX_MINS*100;
           const barC = e.isHoliday ? C.purple
             : mins===0 ? C.border
-            : mins<9*60+30 ? C.red
-            : mins<=10*60+30 ? C.yellow : C.blue;
+            : mins<standardMins ? C.red
+            : mins<=standardMins+60 ? C.yellow : C.blue;
           return (
             <View key={i} style={s.barRow}>
               <Text style={s.barLabel}>{e.day.slice(0,3)}</Text>
@@ -162,21 +204,39 @@ export const DashboardScreen: React.FC<Props> = ({ entries }) => {
         })}
       </View>
 
-      {/* ── Best / Worst */}
+      {/* ── Best / Worst (Month) */}
       <View style={[s.row2, { marginTop:10 }]}>
         <View style={[s.card, s.half]}>
-          <Text style={s.label}>Ay En İyi</Text>
+          <Text style={s.label}>Bu Ay En İyi</Text>
           <Text style={[s.value, { color:C.blue, fontSize:20 }]}>
-            {bestDay ? minsToHM(bestDay.mins) : '—'}
+            {bestDayMonth ? minsToHM(bestDayMonth.mins) : '—'}
           </Text>
-          <Text style={s.sub}>{bestDay?.date ?? ''}</Text>
+          <Text style={s.sub}>{bestDayMonth?.date ?? ''}</Text>
         </View>
         <View style={[s.card, s.half]}>
-          <Text style={s.label}>Ay En Kötü</Text>
+          <Text style={s.label}>Bu Ay En Kötü</Text>
           <Text style={[s.value, { color:C.red, fontSize:20 }]}>
-            {worstDay ? minsToHM(worstDay.mins) : '—'}
+            {worstDayMonth ? minsToHM(worstDayMonth.mins) : '—'}
           </Text>
-          <Text style={s.sub}>{worstDay?.date ?? ''}</Text>
+          <Text style={s.sub}>{worstDayMonth?.date ?? ''}</Text>
+        </View>
+      </View>
+
+      {/* ── Best / Worst (Year) */}
+      <View style={[s.row2, { marginTop:10 }]}>
+        <View style={[s.card, s.half]}>
+          <Text style={s.label}>Bu Yıl En İyi</Text>
+          <Text style={[s.value, { color:C.blue, fontSize:20 }]}>
+            {bestDayYear ? minsToHM(bestDayYear.mins) : '—'}
+          </Text>
+          <Text style={s.sub}>{bestDayYear?.date ?? ''}</Text>
+        </View>
+        <View style={[s.card, s.half]}>
+          <Text style={s.label}>Bu Yıl En Kötü</Text>
+          <Text style={[s.value, { color:C.red, fontSize:20 }]}>
+            {worstDayYear ? minsToHM(worstDayYear.mins) : '—'}
+          </Text>
+          <Text style={s.sub}>{worstDayYear?.date ?? ''}</Text>
         </View>
       </View>
 

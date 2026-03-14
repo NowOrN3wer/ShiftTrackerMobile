@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { ShiftEntry } from '../types';
-import { RowColors } from '../utils/theme';
+import { getRowColors } from '../utils/theme';
 import { getRowColor, minsToHM, timeToMins } from '../utils/helpers';
 import { Colors } from '../utils/theme';
 
@@ -12,7 +12,7 @@ interface Props {
 
 export const ShiftRow: React.FC<Props> = ({ entry, onLongPress }) => {
   const color = getRowColor(entry.startTime, entry.endTime, entry.isHoliday);
-  const theme = RowColors[color];
+  const theme = getRowColors('dark')[color];
 
   const total = entry.isHoliday
     ? '—'
