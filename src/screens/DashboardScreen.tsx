@@ -212,7 +212,7 @@ export const DashboardScreen: React.FC<Props> = ({ entries }) => {
             ? timeToMins(e.endTime) - timeToMins(e.startTime) : 0;
           const isHol = e?.isHoliday;
           
-          const pct = mins / MAX_MINS * 100;
+          const pct = isHol ? 100 : (mins / MAX_MINS * 100);
           const barC = isHol ? C.purple
             : mins === 0 ? C.border
             : mins < standardMins ? C.red
