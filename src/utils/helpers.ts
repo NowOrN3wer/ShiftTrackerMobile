@@ -205,3 +205,29 @@ export function formatDateLong(dateStr: string): string {
   const d = parseDate(dateStr);
   return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()} ${days[d.getDay()]}`;
 }
+
+/** 
+ * Gets the string dates (GG.AA.YYYY) for the current ISO week (Monday to Sunday) 
+ */
+export function getThisWeekDates(): string[] {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const dayOfWeek = now.getDay();
+  // In JS, Sunday is 0. ISO week starts on Monday(1) so shift Sunday to 7.
+  const isoDay = dayOfWeek === 0 ? 7 : dayOfWeek;
+  
+  const mondayOffset = isoDay - 1;
+  const mondayDate = new Date(now);
+  mondayDate.setDate(now.getDate() - mondayOffset);
+
+  const weekStr: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(mondayDate);
+    d.setDate(mondayDate.getDate() + i);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yy = d.getFullYear();
+    weekStr.push(`${dd}.${mm}.${yy}`);
+  }
+  return weekStr;
+}

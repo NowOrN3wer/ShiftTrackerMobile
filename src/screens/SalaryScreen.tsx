@@ -19,6 +19,7 @@ export const SalaryScreen: React.FC = () => {
   // Modals & UI Toggles
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showSalaries, setShowSalaries] = useState(false); // Default hidden privacy state
+  const [isAccordionOpen, setIsAccordionOpen] = useState(false); // Salary list accordion
   const isDark = themeMode === 'dark';
 
   // Purchase Calculator State
@@ -92,10 +93,11 @@ export const SalaryScreen: React.FC = () => {
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
       <ScrollView style={[s.container, { backgroundColor: C.bg }]} keyboardShouldPersistTaps="handled">
         
-        {/* Salary History Section */}
+        {/* Purchase Calculator Section (Moved to the top) */}
         <View style={[s.card, { backgroundColor: C.surface, borderColor: C.border }]}>
           <View style={s.sectionHeader}>
-            <Text style={[s.sectionTitle, { color: C.text }]}>Maaş Ekle / Geçmiş</Text>
+            <Text style={[s.sectionTitle, { color: C.text }]}>Alışveriş & Hedef Hesaplayıcı</Text>
+            {/* Moved the eye button here since it relies heavily on calculation context */}
             <TouchableOpacity onPress={() => setShowSalaries(!showSalaries)} style={s.eyeButton}>
               <Text style={{ fontSize: 16 }}>{showSalaries ? '👁️' : '🙈'}</Text>
               <Text style={{ fontSize: 12, color: C.cyan, fontWeight: '700', marginLeft: 4 }}>
@@ -103,72 +105,6 @@ export const SalaryScreen: React.FC = () => {
               </Text>
             </TouchableOpacity>
           </View>
-
-          <View style={s.inputRow}>
-            <TextInput
-              style={[s.input, { backgroundColor: C.bg, color: C.text, borderColor: C.border }]}
-              placeholder="0.00 ₺"
-              placeholderTextColor={C.muted}
-              keyboardType="decimal-pad"
-              value={salAmount}
-              onChangeText={setSalAmount}
-            />
-            <TouchableOpacity 
-              style={[s.dateButton, { backgroundColor: C.surface2, borderColor: C.border }]}
-              onPress={() => setShowDatePicker(true)}
-            >
-              <Text style={{ color: C.text, fontFamily: 'monospace' }}>
-                {salDate.toLocaleDateString('tr-TR')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity style={[s.addBtn, { backgroundColor: C.cyan }]} onPress={handleAddSalary}>
-            <Text style={s.addBtnText}>Kaydet</Text>
-          </TouchableOpacity>
-
-          {/* Salary List */}
-          <View style={s.listContainer}>
-            {salaries.map((sal, index) => {
-              const previousSalary = salaries[index + 1];
-              let diffText = '';
-              let diffColor = C.muted;
-              if (previousSalary) {
-                const diff = sal.amount - previousSalary.amount;
-                const percent = Math.abs((diff / previousSalary.amount) * 100).toFixed(1);
-                
-                if (diff > 0) {
-                  diffText = `(+${diff.toLocaleString('tr-TR')} ₺ | %${percent} Zam)`;
-                  diffColor = C.green;
-                } else if (diff < 0) {
-                  diffText = `(${diff.toLocaleString('tr-TR')} ₺ | -%${percent} Düşüş)`;
-                  diffColor = C.red;
-                }
-              }
-
-              const displayAmount = showSalaries ? `${sal.amount.toLocaleString('tr-TR')} ₺` : '**** ₺';
-              const displayDiff = showSalaries ? diffText : (diffText ? '****' : '');
-
-              return (
-                <TouchableOpacity 
-                  key={sal.id} 
-                  style={[s.row, { borderBottomColor: C.border }]}
-                  onLongPress={() => handleDeleteSalary(sal.id)}
-                >
-                  <View>
-                    <Text style={[s.rowDate, { color: C.muted }]}>{sal.date}</Text>
-                    <Text style={[s.rowAmount, { color: C.text }]}>{displayAmount}</Text>
-                  </View>
-                  <Text style={[s.rowDiff, { color: diffColor }]}>{displayDiff}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Purchase Calculator Section */}
-        <View style={[s.card, { backgroundColor: C.surface, borderColor: C.border, marginTop: 16 }]}>
-          <Text style={[s.sectionTitle, { color: C.text }]}>Alışveriş & Hedef Hesaplayıcı</Text>
           <Text style={[s.infoText, { color: C.muted, marginBottom: 12 }]}>
             Almak istediğiniz bir eşyanın fiyatını girin, onu alabilmek için ne kadar çalışmanız gerektiğini hesaplayalım.
           </Text>
@@ -183,6 +119,85 @@ export const SalaryScreen: React.FC = () => {
           />
 
           {renderPurchaseTime()}
+        </View>
+        
+        {/* Salary History Section (Accordion) */}
+        <View style={[s.card, { backgroundColor: C.surface, borderColor: C.border, marginTop: 16 }]}>
+          <TouchableOpacity 
+            style={s.accordionHeader} 
+            activeOpacity={0.7} 
+            onPress={() => setIsAccordionOpen(!isAccordionOpen)}
+          >
+            <Text style={[s.sectionTitle, { color: C.text, marginBottom: 0 }]}>Maaş Ekle / Geçmiş</Text>
+            <Text style={{ fontSize: 18, color: C.muted, transform: [{ rotate: isAccordionOpen ? '180deg' : '0deg' }] }}>
+              ▼
+            </Text>
+          </TouchableOpacity>
+
+          {isAccordionOpen && (
+            <View style={{ marginTop: 16 }}>
+              <View style={s.inputRow}>
+                <TextInput
+                  style={[s.input, { backgroundColor: C.bg, color: C.text, borderColor: C.border }]}
+                  placeholder="0.00 ₺"
+                  placeholderTextColor={C.muted}
+                  keyboardType="decimal-pad"
+                  value={salAmount}
+                  onChangeText={setSalAmount}
+                />
+                <TouchableOpacity 
+                  style={[s.dateButton, { backgroundColor: C.surface2, borderColor: C.border }]}
+                  onPress={() => setShowDatePicker(true)}
+                >
+                  <Text style={{ color: C.text, fontFamily: 'monospace' }}>
+                    {salDate.toLocaleDateString('tr-TR')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity style={[s.addBtn, { backgroundColor: C.cyan }]} onPress={handleAddSalary}>
+                <Text style={s.addBtnText}>Kaydet</Text>
+              </TouchableOpacity>
+
+              {/* Salary List */}
+              <View style={s.listContainer}>
+                {salaries.map((sal, index) => {
+                  const previousSalary = salaries[index + 1];
+                  let diffText = '';
+                  let diffColor = C.muted;
+                  if (previousSalary) {
+                    const diff = sal.amount - previousSalary.amount;
+                    const percent = Math.abs((diff / previousSalary.amount) * 100).toFixed(1);
+                    
+                    if (diff > 0) {
+                      diffText = `(+${diff.toLocaleString('tr-TR')} ₺ | %${percent} Zam)`;
+                      diffColor = C.green;
+                    } else if (diff < 0) {
+                      diffText = `(${diff.toLocaleString('tr-TR')} ₺ | -%${percent} Düşüş)`;
+                      diffColor = C.red;
+                    }
+                  }
+
+                  const displayAmount = showSalaries ? `${sal.amount.toLocaleString('tr-TR')} ₺` : '**** ₺';
+                  const displayDiff = showSalaries ? diffText : (diffText ? '****' : '');
+
+                  return (
+                    <TouchableOpacity 
+                      key={sal.id} 
+                      style={[s.row, { borderBottomColor: C.border }]}
+                      onLongPress={() => handleDeleteSalary(sal.id)}
+                    >
+                      <View>
+                        <Text style={[s.rowDate, { color: C.muted }]}>{sal.date}</Text>
+                        <Text style={[s.rowAmount, { color: C.text }]}>{displayAmount}</Text>
+                      </View>
+                      <Text style={[s.rowDiff, { color: diffColor }]}>{displayDiff}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          )}
         </View>
 
         {/* iOS Date Picker Modal */}
@@ -239,7 +254,8 @@ function makeStyles(C: ReturnType<typeof import('../utils/theme').getColors>) {
     container: { flex: 1, padding: 16 },
     card: { borderWidth: 1, borderRadius: 16, padding: 16 },
     sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-    sectionTitle: { fontSize: 16, fontWeight: '700', fontFamily: 'monospace' },
+    accordionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    sectionTitle: { fontSize: 16, fontWeight: '700', fontFamily: 'monospace', marginBottom: 0 },
     eyeButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface2, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
     inputRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
     input: { flex: 1, borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 16, fontFamily: 'monospace' },

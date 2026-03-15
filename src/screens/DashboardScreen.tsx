@@ -10,7 +10,7 @@ import {
   minsToHM, timeToMins, calcWeekStats,
   calcElapsedDays, calcElapsedLabel, calcElapsedYears,
   daysUntilNextWeek, daysUntilNextMonth, daysUntilNextYear,
-  isWeekend, todayStr, formatDateLong, calcStreak,
+  isWeekend, todayStr, formatDateLong, calcStreak, getThisWeekDates,
 } from '../utils/helpers';
 
 interface Props { entries: ShiftEntry[] }
@@ -44,7 +44,10 @@ export const DashboardScreen: React.FC<Props> = ({ entries }) => {
   const elapsedYears = calcElapsedYears(startDate);
 
   // ── Stats
-  const thisWeek  = entries.slice(0, 7);
+  // Filter only records that land in the current ISO Monday-Sunday week
+  const thisWeekStrs = getThisWeekDates();
+  const thisWeek = entries.filter(e => thisWeekStrs.includes(e.date));
+
   const weekStats = calcWeekStats(thisWeek, standardMins);
   const weekPct   = weekStats.targetMinutes > 0 ? Math.round((weekStats.totalMinutes / weekStats.targetMinutes) * 100) : 100;
 
@@ -203,21 +206,27 @@ export const DashboardScreen: React.FC<Props> = ({ entries }) => {
       {/* ── Weekly bars */}
       <View style={[s.card, { marginTop:10 }]}>
         <Text style={s.label}>Haftalık Çalışma</Text>
-        {thisWeek.slice(0,7).map((e,i) => {
-          const mins = !e.isHoliday&&e.startTime&&e.endTime
-            ? timeToMins(e.endTime)-timeToMins(e.startTime) : 0;
-          const pct = mins/MAX_MINS*100;
-          const barC = e.isHoliday ? C.purple
-            : mins===0 ? C.border
-            : mins<standardMins ? C.red
-            : mins<=standardMins+60 ? C.yellow : C.blue;
+        {thisWeekStrs.map((dateStr, i) => {
+          const e = thisWeek.find(x => x.date === dateStr);
+          const mins = e && !e.isHoliday && e.startTime && e.endTime
+            ? timeToMins(e.endTime) - timeToMins(e.startTime) : 0;
+          const isHol = e?.isHoliday;
+          
+          const pct = mins / MAX_MINS * 100;
+          const barC = isHol ? C.purple
+            : mins === 0 ? C.border
+            : mins < standardMins ? C.red
+            : mins <= standardMins + 60 ? C.yellow : C.blue;
+            
+          const dayShort = new Date(dateStr.split('.')[2]+'-'+dateStr.split('.')[1]+'-'+dateStr.split('.')[0]).toLocaleDateString('tr-TR', { weekday: 'short' }).slice(0,3);
+
           return (
             <View key={i} style={s.barRow}>
-              <Text style={s.barLabel}>{e.day.slice(0,3)}</Text>
+              <Text style={s.barLabel}>{e ? e.day.slice(0,3) : dayShort}</Text>
               <View style={s.barTrack}>
-                <View style={[s.barFill, { width:`${pct}%` as any, backgroundColor:barC }]}/>
+                <View style={[s.barFill, { width: `${pct}%` as any, backgroundColor: barC }]}/>
               </View>
-              <Text style={s.barTime}>{e.isHoliday?'tatil':mins>0?minsToHM(mins):'0:00'}</Text>
+              <Text style={s.barTime}>{isHol ? 'tatil' : mins > 0 ? minsToHM(mins) : '0:00'}</Text>
             </View>
           );
         })}
